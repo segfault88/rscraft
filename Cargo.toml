@@ -1,0 +1,7 @@
+[package]
+name = "rscraft"
+version = "0.1.0"
+authors = ["Malcolm Lockyer <segfault88@gmail.com>"]
+
+[dependencies]
+glium = "*"
