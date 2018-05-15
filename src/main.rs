@@ -27,8 +27,10 @@ fn main() {
 
     in vec2 position;
 
+    uniform mat4 matrix;
+
     void main() {
-        gl_Position = vec4(position, 0.0, 1.0);
+        gl_Position = matrix * vec4(position, 0.0, 1.0);
     }
 "#;
 
@@ -37,8 +39,10 @@ fn main() {
 
     out vec4 color;
 
+    uniform float t;
+
     void main() {
-        color = vec4(1.0, 0.0, 0.0, 1.0);
+        color = vec4(1.0*cos(t), 1.0*tan(t), 1.0*sin(t), 1.0);
     }
 "#;
 
@@ -53,12 +57,35 @@ fn main() {
         glium::Program::from_source(&display, vertex_shader_src, fragment_shader_src, None)
             .unwrap();
 
+    let mut t: f32 = -10.0;
     let mut closed = false;
     while !closed {
+        t += 0.004;
+        if t > 10.0 {
+            t = -10.0;
+        }
+
+        let uniforms = uniform! {
+            t: t,
+            matrix: [
+                [ t.cos(), t.sin(), 0.0, 0.0],
+                [-t.sin(), t.cos(), 0.0, 0.0],
+                [0.0, 0.0, 1.0, 0.0],
+                [0.0, 0.0, 0.0, 1.0f32],
+            ]
+        };
+
         let mut target = display.draw();
         target.clear_color(0.1, 0.1, 0.15, 1.0);
-        target.draw(&vertex_buffer, &indices, &program, &glium::uniforms::EmptyUniforms,
-            &Default::default()).unwrap();
+        target
+            .draw(
+                &vertex_buffer,
+                &indices,
+                &program,
+                &uniforms,
+                &Default::default(),
+            )
+            .unwrap();
         target.finish().unwrap();
 
         events_loop.poll_events(|ev| match ev {
