@@ -1,18 +1,34 @@
 #[macro_use]
 extern crate glium;
-
 extern crate image;
 
-#[derive(Copy, Clone)]
-struct Vertex {
-    position: [f32; 2],
-    tex_coords: [f32; 2],
-}
-
-implement_vertex!(Vertex, position, tex_coords);
+use std::io::Cursor;
 
 fn main() {
     use glium::{glutin, Surface};
+
+    let mut events_loop = glutin::EventsLoop::new();
+    let window = glutin::WindowBuilder::new();
+    let context = glutin::ContextBuilder::new();
+    let display = glium::Display::new(window, context, &events_loop).unwrap();
+
+    let image = image::load(
+        Cursor::new(&include_bytes!("/Users/malcolm/Projects/rust/rscraft/assets/kitty.jpg")[..]),
+        image::PNG,
+    ).unwrap()
+        .to_rgba();
+    let image_dimensions = image.dimensions();
+    let image =
+        glium::texture::RawImage2d::from_raw_rgba_reversed(&image.into_raw(), image_dimensions);
+    let texture = glium::texture::Texture2d::new(&display, image).unwrap();
+
+    #[derive(Copy, Clone)]
+    struct Vertex {
+        position: [f32; 2],
+        tex_coords: [f32; 2],
+    }
+
+    implement_vertex!(Vertex, position, tex_coords);
 
     let vertex1 = Vertex {
         position: [-0.5, -0.5],
@@ -28,63 +44,46 @@ fn main() {
     };
     let shape = vec![vertex1, vertex2, vertex3];
 
-    let vertex_shader_src = r#"
-#version 140
-
-in vec2 position;
-in vec2 tex_coords;
-out vec2 v_tex_coords;
-
-uniform mat4 matrix;
-
-void main() {
-    v_tex_coords = tex_coords;
-    gl_Position = matrix * vec4(position, 0.0, 1.0);
-}
-"#;
-
-    let fragment_shader_src = r#"
-#version 140
-
-in vec2 v_tex_coords;
-out vec4 color;
-
-uniform sampler2D tex;
-
-void main() {
-    color = texture(tex, v_tex_coords);
-}
-"#;
-
-    use std::io::Cursor;
-    let image = image::load(
-        Cursor::new(&include_bytes!("/Users/malcolm/Projects/rust/rscraft/assets/kitty.jpg")[..]),
-        image::PNG,
-    ).unwrap()
-        .to_rgba();
-    let image_dimensions = image.dimensions();
-    let image =
-        glium::texture::RawImage2d::from_raw_rgba_reversed(&image.into_raw(), image_dimensions);
-
-    let mut events_loop = glium::glutin::EventsLoop::new();
-    let window = glium::glutin::WindowBuilder::new();
-    let context = glium::glutin::ContextBuilder::new();
-    let display = glium::Display::new(window, context, &events_loop).unwrap();
-
     let vertex_buffer = glium::VertexBuffer::new(&display, &shape).unwrap();
     let indices = glium::index::NoIndices(glium::index::PrimitiveType::TrianglesList);
+
+    let vertex_shader_src = r#"
+        #version 140
+        in vec2 position;
+        in vec2 tex_coords;
+        out vec2 v_tex_coords;
+        uniform mat4 matrix;
+        void main() {
+            v_tex_coords = tex_coords;
+            gl_Position = matrix * vec4(position, 0.0, 1.0);
+        }
+    "#;
+
+    let fragment_shader_src = r#"
+        #version 140
+        in vec2 v_tex_coords;
+        out vec4 color;
+        uniform sampler2D tex;
+        void main() {
+            color = texture(tex, v_tex_coords);
+        }
+    "#;
+
     let program =
         glium::Program::from_source(&display, vertex_shader_src, fragment_shader_src, None)
             .unwrap();
-    let texture = glium::texture::Texture2d::new(&display, image).unwrap();
 
-    let mut t: f32 = -10.0;
+    let mut t = -0.5;
     let mut closed = false;
     while !closed {
-        t += 0.004;
-        if t > 10.0 {
-            t = -10.0;
+        // we update `t`
+        t += 0.0002;
+        if t > 0.5 {
+            t = -0.5;
         }
+
+        let mut target = display.draw();
+        target.clear_color(0.0, 0.0, 1.0, 1.0);
 
         let uniforms = uniform! {
             matrix: [
@@ -96,8 +95,6 @@ void main() {
             tex: &texture,
         };
 
-        let mut target = display.draw();
-        target.clear_color(0.1, 0.1, 0.15, 1.0);
         target
             .draw(
                 &vertex_buffer,
@@ -109,7 +106,7 @@ void main() {
             .unwrap();
         target.finish().unwrap();
 
-        events_loop.poll_events(|ev| match ev {
+        events_loop.poll_events(|event| match event {
             glutin::Event::WindowEvent { event, .. } => match event {
                 glutin::WindowEvent::Closed => closed = true,
                 _ => (),
