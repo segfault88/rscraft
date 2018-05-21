@@ -1,50 +1,70 @@
 #[macro_use]
 extern crate glium;
 
+extern crate image;
+
 #[derive(Copy, Clone)]
 struct Vertex {
     position: [f32; 2],
+    tex_coords: [f32; 2],
 }
 
-implement_vertex!(Vertex, position);
+implement_vertex!(Vertex, position, tex_coords);
 
 fn main() {
     use glium::{glutin, Surface};
 
     let vertex1 = Vertex {
         position: [-0.5, -0.5],
+        tex_coords: [0.0, 0.0],
     };
     let vertex2 = Vertex {
         position: [0.0, 0.5],
+        tex_coords: [0.0, 1.0],
     };
     let vertex3 = Vertex {
         position: [0.5, -0.25],
+        tex_coords: [1.0, 0.0],
     };
     let shape = vec![vertex1, vertex2, vertex3];
 
     let vertex_shader_src = r#"
-    #version 140
+#version 140
 
-    in vec2 position;
+in vec2 position;
+in vec2 tex_coords;
+out vec2 v_tex_coords;
 
-    uniform mat4 matrix;
+uniform mat4 matrix;
 
-    void main() {
-        gl_Position = matrix * vec4(position, 0.0, 1.0);
-    }
+void main() {
+    v_tex_coords = tex_coords;
+    gl_Position = matrix * vec4(position, 0.0, 1.0);
+}
 "#;
 
     let fragment_shader_src = r#"
-    #version 140
+#version 140
 
-    out vec4 color;
+in vec2 v_tex_coords;
+out vec4 color;
 
-    uniform float t;
+uniform sampler2D tex;
 
-    void main() {
-        color = vec4(1.0*cos(t), 1.0*tan(t), 1.0*sin(t), 1.0);
-    }
+void main() {
+    color = texture(tex, v_tex_coords);
+}
 "#;
+
+    use std::io::Cursor;
+    let image = image::load(
+        Cursor::new(&include_bytes!("/Users/malcolm/Projects/rust/rscraft/assets/kitty.jpg")[..]),
+        image::PNG,
+    ).unwrap()
+        .to_rgba();
+    let image_dimensions = image.dimensions();
+    let image =
+        glium::texture::RawImage2d::from_raw_rgba_reversed(&image.into_raw(), image_dimensions);
 
     let mut events_loop = glium::glutin::EventsLoop::new();
     let window = glium::glutin::WindowBuilder::new();
@@ -56,6 +76,7 @@ fn main() {
     let program =
         glium::Program::from_source(&display, vertex_shader_src, fragment_shader_src, None)
             .unwrap();
+    let texture = glium::texture::Texture2d::new(&display, image).unwrap();
 
     let mut t: f32 = -10.0;
     let mut closed = false;
@@ -66,13 +87,13 @@ fn main() {
         }
 
         let uniforms = uniform! {
-            t: t,
             matrix: [
-                [ t.cos(), t.sin(), 0.0, 0.0],
-                [-t.sin(), t.cos(), 0.0, 0.0],
+                [1.0, 0.0, 0.0, 0.0],
+                [0.0, 1.0, 0.0, 0.0],
                 [0.0, 0.0, 1.0, 0.0],
-                [0.0, 0.0, 0.0, 1.0f32],
-            ]
+                [ t , 0.0, 0.0, 1.0f32],
+            ],
+            tex: &texture,
         };
 
         let mut target = display.draw();

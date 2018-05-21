@@ -5,3 +5,4 @@ authors = ["Malcolm Lockyer <segfault88@gmail.com>"]
 
 [dependencies]
 glium = "*"
+image = "*"
