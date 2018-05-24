@@ -11,7 +11,7 @@ fn main() {
 
     let mut events_loop = glutin::EventsLoop::new();
     let window = glutin::WindowBuilder::new();
-    let context = glutin::ContextBuilder::new();
+    let context = glutin::ContextBuilder::new().with_depth_buffer(24);
     let display = glium::Display::new(window, context, &events_loop).unwrap();
 
     let image = image::load(
@@ -85,7 +85,8 @@ void main() {
         }
 
         let mut target = display.draw();
-        target.clear_color(0.1, 0.1, 0.15, 1.0);
+        // target.clear_color(0.1, 0.1, 0.15, 1.0);
+        target.clear_color_and_depth((0.1, 0.1, 0.2, 1.0), 1.0);
 
         let oldUniforms = uniform! {
             matrix: [
@@ -107,13 +108,22 @@ void main() {
         // the direction of the light
         let light = [-1.0, 0.4, 0.9f32];
 
+        let params = glium::DrawParameters {
+            depth: glium::Depth {
+                test: glium::draw_parameters::DepthTest::IfLess,
+                write: true,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+
         target
             .draw(
                 (&positions, &normals),
                 &indices,
                 &program,
                 &uniform! { matrix: matrix, u_light: light },
-                &Default::default(),
+                &params,
             )
             .unwrap();
         target.finish().unwrap();
