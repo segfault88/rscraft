@@ -22,7 +22,7 @@ fn main() {
     let image_dimensions = image.dimensions();
     let image =
         glium::texture::RawImage2d::from_raw_rgba_reversed(&image.into_raw(), image_dimensions);
-    let texture = glium::texture::Texture2d::new(&display, image).unwrap();
+    let _texture = glium::texture::Texture2d::new(&display, image).unwrap();
 
     #[derive(Copy, Clone)]
     struct Vertex {
@@ -49,10 +49,11 @@ in vec3 normal;
 out vec3 v_normal;
 
 uniform mat4 matrix;
+uniform mat4 perspective;
 
 void main() {
     v_normal = transpose(inverse(mat3(matrix))) * normal;
-    gl_Position = matrix * vec4(position, 1.0);
+    gl_Position = perspective * matrix * vec4(position, 1.0);
 }
     "#;
 
@@ -85,25 +86,32 @@ void main() {
         }
 
         let mut target = display.draw();
-        // target.clear_color(0.1, 0.1, 0.15, 1.0);
         target.clear_color_and_depth((0.1, 0.1, 0.2, 1.0), 1.0);
-
-        let oldUniforms = uniform! {
-            matrix: [
-                [t.cos(), t.sin(), 0.0, 0.0],
-                [-t.sin(), t.cos(), 0.0, 0.0],
-                [0.0, 0.0, 1.0, 0.0],
-                [ t , 0.0, 0.0, 1.0f32],
-            ],
-            tex: &texture,
-        };
 
         let matrix = [
             [t.cos() * 0.01, t.sin() * 0.01, 0.0, 0.0],
             [-t.sin() * 0.01, t.cos() * 0.01, 0.0, 0.0],
             [0.0, 0.0, 0.01, 0.0],
-            [0.0, 0.0, 0.0, 1.0f32],
+            [0.0, 0.0, 4.0 + t.cos() * 10.0, 1.0f32],
         ];
+
+        let perspective = {
+            let (width, height) = target.get_dimensions();
+            let aspect_ratio = height as f32 / width as f32;
+
+            let fov: f32 = 3.141592 / 3.0;
+            let zfar = 1024.0;
+            let znear = 0.1;
+
+            let f = 1.0 / (fov / 2.0).tan();
+
+            [
+                [f * aspect_ratio, 0.0, 0.0, 0.0],
+                [0.0, f, 0.0, 0.0],
+                [0.0, 0.0, (zfar + znear) / (zfar - znear), 1.0],
+                [0.0, 0.0, -(2.0 * zfar * znear) / (zfar - znear), 0.0],
+            ]
+        };
 
         // the direction of the light
         let light = [-1.0, 0.4, 0.9f32];
@@ -122,7 +130,7 @@ void main() {
                 (&positions, &normals),
                 &indices,
                 &program,
-                &uniform! { matrix: matrix, u_light: light },
+                &uniform! { matrix: matrix, perspective: perspective, u_light: light },
                 &params,
             )
             .unwrap();
