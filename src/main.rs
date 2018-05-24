@@ -4,6 +4,8 @@ extern crate image;
 
 use std::io::Cursor;
 
+mod teapot;
+
 fn main() {
     use glium::{glutin, Surface};
 
@@ -30,54 +32,46 @@ fn main() {
 
     implement_vertex!(Vertex, position, tex_coords);
 
-    let vertex1 = Vertex {
-        position: [-0.5, -0.5],
-        tex_coords: [0.0, 0.0],
-    };
-    let vertex2 = Vertex {
-        position: [0.0, 0.5],
-        tex_coords: [0.0, 1.0],
-    };
-    let vertex3 = Vertex {
-        position: [0.5, -0.25],
-        tex_coords: [1.0, 0.0],
-    };
-    let shape = vec![vertex1, vertex2, vertex3];
-
-    let vertex_buffer = glium::VertexBuffer::new(&display, &shape).unwrap();
-    let indices = glium::index::NoIndices(glium::index::PrimitiveType::TrianglesList);
+    let positions = glium::VertexBuffer::new(&display, &teapot::VERTICES).unwrap();
+    let normals = glium::VertexBuffer::new(&display, &teapot::NORMALS).unwrap();
+    let indices = glium::IndexBuffer::new(
+        &display,
+        glium::index::PrimitiveType::TrianglesList,
+        &teapot::INDICES,
+    ).unwrap();
 
     let vertex_shader_src = r#"
-        #version 140
-        in vec2 position;
-        in vec2 tex_coords;
-        out vec2 v_tex_coords;
-        uniform mat4 matrix;
-        void main() {
-            v_tex_coords = tex_coords;
-            gl_Position = matrix * vec4(position, 0.0, 1.0);
-        }
+#version 140
+
+in vec3 position;
+in vec3 normal;
+
+uniform mat4 matrix;
+
+void main() {
+    gl_Position = matrix * vec4(position, 1.0);
+}
     "#;
 
     let fragment_shader_src = r#"
-        #version 140
-        in vec2 v_tex_coords;
-        out vec4 color;
-        uniform sampler2D tex;
-        void main() {
-            color = texture(tex, v_tex_coords);
-        }
+#version 140
+
+out vec4 color;
+
+void main() {
+    color = vec4(0.8, 0.0, 0.0, 1.0);
+}
     "#;
 
     let program =
         glium::Program::from_source(&display, vertex_shader_src, fragment_shader_src, None)
             .unwrap();
 
-    let mut t = -0.5;
+    let mut t: f32 = -0.5;
     let mut closed = false;
     while !closed {
         // we update `t`
-        t += 0.0002;
+        t += 0.002;
         if t > 0.5 {
             t = -0.5;
         }
@@ -87,20 +81,27 @@ fn main() {
 
         let uniforms = uniform! {
             matrix: [
-                [1.0, 0.0, 0.0, 0.0],
-                [0.0, 1.0, 0.0, 0.0],
+                [t.cos(), t.sin(), 0.0, 0.0],
+                [-t.sin(), t.cos(), 0.0, 0.0],
                 [0.0, 0.0, 1.0, 0.0],
                 [ t , 0.0, 0.0, 1.0f32],
             ],
             tex: &texture,
         };
 
+        let matrix = [
+            [t.cos() * 0.01, t.sin() * 0.01, 0.0, 0.0],
+            [-t.sin() * 0.01, t.cos() * 0.01, 0.0, 0.0],
+            [0.0, 0.0, 0.01, 0.0],
+            [0.0, 0.0, 0.0, 1.0f32],
+        ];
+
         target
             .draw(
-                &vertex_buffer,
+                (&positions, &normals),
                 &indices,
                 &program,
-                &uniforms,
+                &uniform! { matrix: matrix },
                 &Default::default(),
             )
             .unwrap();
