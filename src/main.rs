@@ -88,13 +88,13 @@ void main() {
         glium::Program::from_source(&display, vertex_shader_src, fragment_shader_src, None)
             .unwrap();
 
-    let mut t: f32 = -1.5;
+    let mut t: f32 = -2.0;
     let mut closed = false;
     while !closed {
         // we update `t`
-        t += 0.002;
-        if t > 1.5 {
-            t = -1.5;
+        t += 0.004;
+        if t > 2.0 {
+            t = -2.0;
         }
 
         let mut target = display.draw();
@@ -134,6 +134,7 @@ void main() {
                 write: true,
                 ..Default::default()
             },
+            backface_culling: glium::draw_parameters::BackfaceCullingMode::CullClockwise,
             ..Default::default()
         };
 
