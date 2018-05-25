@@ -183,7 +183,12 @@ void main() {
         events_loop.poll_events(|event| match event {
             glutin::Event::WindowEvent { event, .. } => match event {
                 glutin::WindowEvent::Closed => closed = true,
-                _ => (),
+                glutin::WindowEvent::ReceivedCharacter('q') => {
+                    println!("Received q, quitting");
+                    closed = true
+                }
+                glutin::WindowEvent::ReceivedCharacter(a) => println!("ReceivedCharacter: {:?}", a),
+                x => println!("Glutin Window Event: {:?}", x),
             },
             _ => (),
         });
