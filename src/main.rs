@@ -122,6 +122,7 @@ void main() {
 
     let mut t: f32 = -2.0;
     let mut closed = false;
+    let mut mode = true;
     while !closed {
         // we update `t`
         t += 0.004;
@@ -158,12 +159,11 @@ void main() {
         };
 
         // let x = Matrix4::zero<fl>();
-        let eye: Point3<f32> = Point3::new(0.0f32, 0.0f32, 2.0f32);
+        let eye: Point3<f32> = Point3::new(2.0f32, 0.0f32, 2.0f32);
         let dir: Vector3<f32> = Vector3::new(10f32, 0f32, 2.0f32);
-        let up: Vector3<f32> = Vector3::new(0f32, 0f32, 10f32);
-        let x: Matrix4<f32> = Matrix4::look_at_dir(eye, dir, up);
+        let up: Vector3<f32> = Vector3::new(0f32, 0f32, 1f32);
+        let look_at_dir: Matrix4<f32> = Matrix4::look_at_dir(eye, dir, up);
 
-        println!("x: {:?}", x);
 
         // the direction of the light
         let light = [-1.0, 0.4, 0.9f32];
@@ -180,12 +180,21 @@ void main() {
 
         let view = view_matrix(&[2.0, -1.0, 1.0], &[-2.0, 1.0, 1.0], &[0.0, 1.0, 0.0]);
 
+        println!("x: {:?}\nview:      {:?}\n", look_at_dir, view);
+
+        let view_param: [[f32; 4]; 4];
+        if mode {
+            view_param = Into::<[[f32; 4]; 4]>::into(look_at_dir);
+        } else {
+            view_param = view;
+        }
+
         target
             .draw(
                 (&positions, &normals),
                 &indices,
                 &program,
-                &uniform! { model: model, view:view, perspective: perspective, u_light: light },
+                &uniform! { model: model, view: view_param, perspective: perspective, u_light: light },
                 &params,
             )
             .unwrap();
@@ -194,6 +203,9 @@ void main() {
         events_loop.poll_events(|event| match event {
             glutin::Event::WindowEvent { event, .. } => match event {
                 glutin::WindowEvent::Closed => closed = true,
+                glutin::WindowEvent::ReceivedCharacter('m') => {
+                    mode = !mode;
+                }
                 glutin::WindowEvent::ReceivedCharacter('q') => {
                     println!("Received q, quitting");
                     closed = true
