@@ -1,7 +1,10 @@
 #[macro_use]
 extern crate glium;
+extern crate cgmath;
 extern crate image;
 
+use cgmath::Zero;
+use cgmath::{Matrix4, Point3, Vector3};
 use std::io::Cursor;
 
 mod teapot;
@@ -153,6 +156,14 @@ void main() {
                 [0.0, 0.0, -(2.0 * zfar * znear) / (zfar - znear), 0.0],
             ]
         };
+
+        // let x = Matrix4::zero<fl>();
+        let eye: Point3<f32> = Point3::new(0.0f32, 0.0f32, 2.0f32);
+        let dir: Vector3<f32> = Vector3::new(10f32, 0f32, 2.0f32);
+        let up: Vector3<f32> = Vector3::new(0f32, 0f32, 10f32);
+        let x: Matrix4<f32> = Matrix4::look_at_dir(eye, dir, up);
+
+        println!("x: {:?}", x);
 
         // the direction of the light
         let light = [-1.0, 0.4, 0.9f32];
