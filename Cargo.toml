@@ -6,3 +6,8 @@ authors = ["Malcolm Lockyer <segfault88@gmail.com>"]
 [dependencies]
 glium = "*"
 image = "*"
+cgmath = "0.16.*"
+
+[dependencies.gltf]
+version = "0.10"
+features = ["extras", "names"]
