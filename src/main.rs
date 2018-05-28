@@ -2,9 +2,11 @@
 extern crate glium;
 extern crate cgmath;
 extern crate image;
+extern crate nalgebra as na;
 
-use cgmath::Zero;
-use cgmath::{Matrix4, Point3, Vector3};
+// use cgmath::Zero;
+// use cgmath::{Matrix4, Point3, Vector3};
+use na::{Matrix4, Point3, Vector3};
 use std::io::Cursor;
 
 mod teapot;
@@ -133,12 +135,21 @@ void main() {
         let mut target = display.draw();
         target.clear_color_and_depth((0.1, 0.1, 0.2, 1.0), 1.0);
 
-        let model = [
-            [t.cos() * 0.01, t.sin() * 0.01, 0.0, 0.0],
-            [-t.sin() * 0.01, t.cos() * 0.01, 0.0, 0.0],
-            [0.0, 0.0, 0.01, 0.0],
-            [0.0, 0.0, 2.0, 1.0f32],
-        ];
+        // let model = [
+        //     [t.cos() * 0.01, t.sin() * 0.01, 0.0, 0.0],
+        //     [-t.sin() * 0.01, t.cos() * 0.01, 0.0, 0.0],
+        //     [0.0, 0.0, 0.01, 0.0],
+        //     [0.0, 0.0, 4.0, 1.0f32],
+        // ];
+
+        let rot = Matrix4::from_scaled_axis(&Vector3::x() * 3.14 * t);
+
+        let model_matrix =
+            Matrix4::new_scaling(0.1).append_translation(&Vector3::new(1.0f32, t*10.0, 50.0f32)) * rot;
+
+        let model: [[f32; 4]; 4] = model_matrix.into();
+
+        println!("model: {:?}", model);
 
         let perspective = {
             let (width, height) = target.get_dimensions();
@@ -159,11 +170,14 @@ void main() {
         };
 
         // let x = Matrix4::zero<fl>();
-        let eye: Point3<f32> = Point3::new(2.0f32, 0.0f32, 2.0f32);
-        let dir: Vector3<f32> = Vector3::new(10f32, 0f32, 2.0f32);
-        let up: Vector3<f32> = Vector3::new(0f32, 0f32, 1f32);
-        let look_at_dir: Matrix4<f32> = Matrix4::look_at_dir(eye, dir, up);
+        // let eye: Point3<f32> = Point3::new(2.0f32, 0.0f32, 2.0f32);
+        // let dir: Vector3<f32> = Vector3::new(10f32, 0f32, 2.0f32);
+        // let up: Vector3<f32> = Vector3::new(0f32, 0f32, 1f32);
+        // let look_at_dir: Matrix4<f32> = Matrix4::look_at_dir(eye, dir, up);
 
+        let eye = Point3::new(1.0, 0.0, 1.0);
+        let look_target = Point3::new(1.0, 0.0, 0.0);
+        let naview = Matrix4::look_at_rh(&eye, &look_target, &Vector3::y());
 
         // the direction of the light
         let light = [-1.0, 0.4, 0.9f32];
@@ -180,11 +194,11 @@ void main() {
 
         let view = view_matrix(&[2.0, -1.0, 1.0], &[-2.0, 1.0, 1.0], &[0.0, 1.0, 0.0]);
 
-        println!("x: {:?}\nview:      {:?}\n", look_at_dir, view);
+        // println!("x: {:?}\nview:      {:?}\n", naview, view);
 
         let view_param: [[f32; 4]; 4];
         if mode {
-            view_param = Into::<[[f32; 4]; 4]>::into(look_at_dir);
+            view_param = naview.into();
         } else {
             view_param = view;
         }
