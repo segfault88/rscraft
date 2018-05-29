@@ -7,6 +7,7 @@ authors = ["Malcolm Lockyer <segfault88@gmail.com>"]
 glium = "*"
 image = "*"
 cgmath = "0.16.*"
+nalgebra = "0.15.0"
 
 [dependencies.gltf]
 version = "0.10"

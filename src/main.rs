@@ -6,6 +6,7 @@ extern crate nalgebra as na;
 
 // use cgmath::Zero;
 // use cgmath::{Matrix4, Point3, Vector3};
+use na::geometry::Perspective3;
 use na::{Matrix4, Point3, Vector3};
 use std::io::Cursor;
 
@@ -145,11 +146,10 @@ void main() {
         let rot = Matrix4::from_scaled_axis(&Vector3::x() * 3.14 * t);
 
         let model_matrix =
-            Matrix4::new_scaling(0.1).append_translation(&Vector3::new(1.0f32, t*10.0, 50.0f32)) * rot;
+            Matrix4::new_scaling(0.1).append_translation(&Vector3::new(1.0f32, t * 10.0, 50.0f32))
+                * rot;
 
         let model: [[f32; 4]; 4] = model_matrix.into();
-
-        println!("model: {:?}", model);
 
         let perspective = {
             let (width, height) = target.get_dimensions();
@@ -169,14 +169,24 @@ void main() {
             ]
         };
 
+        let (width, height) = target.get_dimensions();
+        let aspect_ratio = height as f32 / width as f32;
+        let fov: f32 = 3.141592 / 3.0;
+        // let perspective2: [[f32; 4]; 4] = Matrix4::new_perspective(aspect_ratio, fov, 0.1f32, 1024.0f32).into();
+
+        let perspective2: [[f32; 4]; 4] =
+            Perspective3::new(aspect_ratio, fov, 0.1f32, 1024.0f32).to_homogeneous().into();
+
+        println!("p1: {:?}\np2: {:?}", perspective, perspective2);
+
         // let x = Matrix4::zero<fl>();
         // let eye: Point3<f32> = Point3::new(2.0f32, 0.0f32, 2.0f32);
         // let dir: Vector3<f32> = Vector3::new(10f32, 0f32, 2.0f32);
         // let up: Vector3<f32> = Vector3::new(0f32, 0f32, 1f32);
         // let look_at_dir: Matrix4<f32> = Matrix4::look_at_dir(eye, dir, up);
 
-        let eye = Point3::new(1.0, 0.0, 1.0);
-        let look_target = Point3::new(1.0, 0.0, 0.0);
+        let eye = Point3::new(-1.0, 0.0, -1.0);
+        let look_target = Point3::new(-1.0, 0.0, 0.0);
         let naview = Matrix4::look_at_rh(&eye, &look_target, &Vector3::y());
 
         // the direction of the light
@@ -208,7 +218,7 @@ void main() {
                 (&positions, &normals),
                 &indices,
                 &program,
-                &uniform! { model: model, view: view_param, perspective: perspective, u_light: light },
+                &uniform! { model: model, view: view_param, perspective: perspective2, u_light: light },
                 &params,
             )
             .unwrap();
