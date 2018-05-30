@@ -146,7 +146,7 @@ void main() {
         let rot = Matrix4::from_scaled_axis(&Vector3::x() * 3.14 * t);
 
         let model_matrix =
-            Matrix4::new_scaling(0.1).append_translation(&Vector3::new(-1.0f32, t * -10.0, -90.0f32))
+            Matrix4::new_scaling(0.1).append_translation(&Vector3::new(1.0f32, t * 10.0, 90.0f32))
                 * rot;
 
         let model: [[f32; 4]; 4] = model_matrix.into();
@@ -187,7 +187,7 @@ void main() {
 
         let eye = Point3::new(1.0, 0.0, 1.0);
         let look_target = Point3::new(1.0, 0.0, 0.0);
-        let naview = Matrix4::look_at_rh(&eye, &look_target, &Vector3::y());
+        let naview = Matrix4::look_at_lh(&eye, &look_target, &Vector3::y());
 
         // the direction of the light
         let light = [-1.0, 0.4, 0.9f32];
