@@ -209,7 +209,8 @@ void main() {
             let (new_swapchain, new_images) = match swapchain.recreate_with_dimension(dimensions) {
                 Ok(r) => r,
                 Err(SwapchainCreationError::UnsupportedDimensions) => {
-                    println!("continue...");
+                    //  { max_supported }
+                    // println!("continue... {:?}", max_supported);
                     continue;
                 }
                 Err(err) => panic!("{:?}", err),
