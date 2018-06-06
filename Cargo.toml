@@ -4,11 +4,10 @@ version = "0.1.0"
 authors = ["Malcolm Lockyer <segfault88@gmail.com>"]
 
 [dependencies]
-glium = "*"
 image = "*"
 cgmath = "0.16.*"
 nalgebra = "0.15.0"
-
-[dependencies.gltf]
-version = "0.10"
-features = ["extras", "names"]
+vulkano = "*"
+vulkano-shader-derive = "*"
+vulkano-win = "*"
+winit = "*"
