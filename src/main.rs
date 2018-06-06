@@ -1,13 +1,16 @@
-extern crate image;
-extern crate nalgebra as na;
+
 #[macro_use]
 extern crate vulkano;
 #[macro_use]
 extern crate vulkano_shader_derive;
-extern crate vulkano_win;
 extern crate winit;
+extern crate vulkano_win;
+
+
 
 use vulkano::instance::Instance;
+use vulkano_win::VkSurfaceBuild;
+
 
 use std::mem;
 use std::sync::Arc;
@@ -26,6 +29,18 @@ fn main() {
         physical.name(),
         physical.ty()
     );
+
+    let mut events_loop = winit::EventsLoop::new();
+    let window = winit::WindowBuilder::new()
+        .build_vk_surface(&events_loop, instance.clone())
+        .unwrap();
+
+    let mut dimensions = {
+        let (width, height) = window.window().get_inner_size().unwrap();
+        [width, height]
+    };
+
+    println!("Dimensions: {}, {}", dimensions[0], dimensions[1]);
 }
 
 // #[macro_use]
