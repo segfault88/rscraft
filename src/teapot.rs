@@ -3,7 +3,7 @@ pub struct Vertex {
     position: (f32, f32, f32),
 }
 
-implement_vertex!(Vertex, position);
+impl_vertex!(Vertex, position);
 
 pub const VERTICES: [Vertex; 531] = [
     Vertex {
@@ -1607,7 +1607,7 @@ pub struct Normal {
     normal: (f32, f32, f32),
 }
 
-implement_vertex!(Normal, normal);
+impl_vertex!(Normal, normal);
 
 pub const NORMALS: [Normal; 531] = [
     Normal {

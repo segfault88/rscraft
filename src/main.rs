@@ -2,6 +2,7 @@
 extern crate vulkano;
 #[macro_use]
 extern crate vulkano_shader_derive;
+extern crate cgmath;
 extern crate vulkano_win;
 extern crate winit;
 
@@ -13,6 +14,7 @@ use vulkano::device::Device;
 use vulkano::framebuffer::Framebuffer;
 use vulkano::framebuffer::Subpass;
 use vulkano::instance::Instance;
+use vulkano::pipeline::vertex::SingleBufferDefinition;
 use vulkano::pipeline::viewport::Viewport;
 use vulkano::pipeline::GraphicsPipeline;
 use vulkano::swapchain;
@@ -27,6 +29,8 @@ use vulkano_win::VkSurfaceBuild;
 
 use std::mem;
 use std::sync::Arc;
+
+mod teapot;
 
 fn main() {
     let instance = {
@@ -111,56 +115,49 @@ fn main() {
         ).expect("failed to create swapchain")
     };
 
-    let vertex_buffer = {
-        #[derive(Debug, Clone)]
-        struct Vertex {
-            position: [f32; 2],
-        }
-        impl_vertex!(Vertex, position);
+    let mut depth_buffer = vulkano::image::attachment::AttachmentImage::transient(
+        device.clone(),
+        dimensions,
+        vulkano::format::D16Unorm,
+    ).unwrap();
 
-        CpuAccessibleBuffer::from_iter(
-            device.clone(),
-            BufferUsage::all(),
-            [
-                Vertex {
-                    position: [-0.5, -0.25],
-                },
-                Vertex {
-                    position: [0.0, 0.5],
-                },
-                Vertex {
-                    position: [0.25, -0.1],
-                },
-            ].iter()
-                .cloned(),
-        ).expect("failed to create buffer")
-    };
+    let vertex_buffer = vulkano::buffer::cpu_access::CpuAccessibleBuffer::from_iter(
+        device.clone(),
+        vulkano::buffer::BufferUsage::all(),
+        teapot::VERTICES.iter().cloned(),
+    ).expect("failed to create vertex buffer");
 
-    mod vs {
-        #[derive(VulkanoShader)]
-        #[ty = "vertex"]
-        #[src = "
-#version 450
-layout(location = 0) in vec2 position;
-void main() {
-    gl_Position = vec4(position, 0.0, 1.0);
-}
-"]
-        struct Dummy;
-    }
+    let normals_buffer = vulkano::buffer::cpu_access::CpuAccessibleBuffer::from_iter(
+        device.clone(),
+        vulkano::buffer::BufferUsage::all(),
+        teapot::NORMALS.iter().cloned(),
+    ).expect("failed to create normals buffer");
 
-    mod fs {
-        #[derive(VulkanoShader)]
-        #[ty = "fragment"]
-        #[src = "
-#version 450
-layout(location = 0) out vec4 f_color;
-void main() {
-    f_color = vec4(1.0, 0.0, 0.0, 1.0);
-}
-"]
-        struct Dummy;
-    }
+    let index_buffer = vulkano::buffer::cpu_access::CpuAccessibleBuffer::from_iter(
+        device.clone(),
+        vulkano::buffer::BufferUsage::all(),
+        teapot::INDICES.iter().cloned(),
+    ).expect("failed to create index buffer");
+
+    // note: this teapot was meant for OpenGL where the origin is at the lower left
+    //       instead the origin is at the upper left in vulkan, so we reverse the Y axis
+    let mut proj = cgmath::perspective(
+        cgmath::Rad(std::f32::consts::FRAC_PI_2),
+        { dimensions[0] as f32 / dimensions[1] as f32 },
+        0.01,
+        100.0,
+    );
+    let view = cgmath::Matrix4::look_at(
+        cgmath::Point3::new(0.3, 0.3, 1.0),
+        cgmath::Point3::new(0.0, 0.0, 0.0),
+        cgmath::Vector3::new(0.0, -1.0, 0.0),
+    );
+    let scale = cgmath::Matrix4::from_scale(0.01);
+
+    let uniform_buffer = vulkano::buffer::cpu_pool::CpuBufferPool::<vs::ty::Data>::new(
+        device.clone(),
+        vulkano::buffer::BufferUsage::all(),
+    );
 
     let vs = vs::Shader::load(device.clone()).expect("failed to create shader module");
     let fs = fs::Shader::load(device.clone()).expect("failed to create shader module");
@@ -173,11 +170,17 @@ void main() {
                 store: Store,
                 format: swapchain.format(),
                 samples: 1,
-            }
+            },
+            depth: {
+                    load: Clear,
+                    store: DontCare,
+                    format: vulkano::format::Format::D16Unorm,
+                    samples: 1,
+                }
         },
         pass: {
             color: [color],
-            depth_stencil: {}
+            depth_stencil: {depth}
         }
     ).unwrap(),
     );
@@ -199,6 +202,7 @@ void main() {
     let mut recreate_swapchain = false;
 
     let mut previous_frame_end = Box::new(now(device.clone())) as Box<GpuFuture>;
+    let rotation_start = std::time::Instant::now();
 
     loop {
         previous_frame_end.cleanup_finished();
@@ -236,7 +240,21 @@ void main() {
             mem::replace(&mut swapchain, new_swapchain);
             mem::replace(&mut images, new_images);
 
+            let new_depth_buffer = vulkano::image::attachment::AttachmentImage::transient(
+                device.clone(),
+                dimensions,
+                vulkano::format::D16Unorm,
+            ).unwrap();
+            std::mem::replace(&mut depth_buffer, new_depth_buffer);
+
             framebuffers = None;
+
+            proj = cgmath::perspective(
+                cgmath::Rad(std::f32::consts::FRAC_PI_2),
+                { dimensions[0] as f32 / dimensions[1] as f32 },
+                0.01,
+                100.0,
+            );
 
             recreate_swapchain = false;
         }
@@ -246,8 +264,10 @@ void main() {
                     .iter()
                     .map(|image| {
                         Arc::new(
-                            Framebuffer::start(render_pass.clone())
+                            vulkano::framebuffer::Framebuffer::start(render_pass.clone())
                                 .add(image.clone())
+                                .unwrap()
+                                .add(depth_buffer.clone())
                                 .unwrap()
                                 .build()
                                 .unwrap(),
@@ -255,8 +275,34 @@ void main() {
                     })
                     .collect::<Vec<_>>(),
             );
-            mem::replace(&mut framebuffers, new_framebuffers);
+            std::mem::replace(&mut framebuffers, new_framebuffers);
         }
+
+        let uniform_buffer_subbuffer = {
+            let elapsed = rotation_start.elapsed();
+            let rotation =
+                elapsed.as_secs() as f64 + elapsed.subsec_nanos() as f64 / 1_000_000_000.0;
+            let rotation = cgmath::Matrix3::from_angle_y(cgmath::Rad(rotation as f32));
+
+            let uniform_data = vs::ty::Data {
+                world: cgmath::Matrix4::from(rotation).into(),
+                view: (view * scale).into(),
+                proj: proj.into(),
+            };
+
+            uniform_buffer.next(uniform_data).unwrap()
+        };
+
+        let set = Arc::new(
+            vulkano::descriptor::descriptor_set::PersistentDescriptorSet::start(
+                pipeline.clone(),
+                0,
+            ).add_buffer(uniform_buffer_subbuffer)
+                .unwrap()
+                .build()
+                .unwrap(),
+        );
+
         let (image_num, acquire_future) =
             match swapchain::acquire_next_image(swapchain.clone(), None) {
                 Ok(r) => r,
@@ -268,27 +314,30 @@ void main() {
             };
 
         let command_buffer =
-            AutoCommandBufferBuilder::primary_one_time_submit(device.clone(), queue.family())
-                .unwrap()
+            vulkano::command_buffer::AutoCommandBufferBuilder::primary_one_time_submit(
+                device.clone(),
+                queue.family(),
+            ).unwrap()
                 .begin_render_pass(
                     framebuffers.as_ref().unwrap()[image_num].clone(),
                     false,
-                    vec![[0.0, 0.0, 1.0, 1.0].into()],
+                    vec![[0.0, 0.0, 1.0, 1.0].into(), 1f32.into()],
                 )
                 .unwrap()
-                .draw(
+                .draw_indexed(
                     pipeline.clone(),
-                    DynamicState {
+                    vulkano::command_buffer::DynamicState {
                         line_width: None,
-                        viewports: Some(vec![Viewport {
+                        viewports: Some(vec![vulkano::pipeline::viewport::Viewport {
                             origin: [0.0, 0.0],
                             dimensions: [dimensions[0] as f32, dimensions[1] as f32],
                             depth_range: 0.0..1.0,
                         }]),
                         scissors: None,
                     },
-                    vertex_buffer.clone(),
-                    (),
+                    (vertex_buffer.clone(), normals_buffer.clone()),
+                    index_buffer.clone(),
+                    set.clone(),
                     (),
                 )
                 .unwrap()
@@ -322,6 +371,46 @@ void main() {
             return;
         }
     }
+}
+
+mod vs {
+    #[derive(VulkanoShader)]
+    #[ty = "vertex"]
+    #[src = "
+#version 450
+layout(location = 0) in vec3 position;
+layout(location = 1) in vec3 normal;
+layout(location = 0) out vec3 v_normal;
+layout(set = 0, binding = 0) uniform Data {
+    mat4 world;
+    mat4 view;
+    mat4 proj;
+} uniforms;
+void main() {
+    mat4 worldview = uniforms.view * uniforms.world;
+    v_normal = transpose(inverse(mat3(worldview))) * normal;
+    gl_Position = uniforms.proj * worldview * vec4(position, 1.0);
+}
+"]
+    struct Dummy;
+}
+
+mod fs {
+    #[derive(VulkanoShader)]
+    #[ty = "fragment"]
+    #[src = "
+#version 450
+layout(location = 0) in vec3 v_normal;
+layout(location = 0) out vec4 f_color;
+const vec3 LIGHT = vec3(0.0, 0.0, 1.0);
+void main() {
+    float brightness = dot(normalize(v_normal), normalize(LIGHT));
+    vec3 dark_color = vec3(0.6, 0.0, 0.0);
+    vec3 regular_color = vec3(1.0, 0.0, 0.0);
+    f_color = vec4(mix(dark_color, regular_color, brightness), 1.0);
+}
+"]
+    struct Dummy;
 }
 
 // #[macro_use]
