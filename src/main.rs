@@ -205,7 +205,7 @@ void main() {
 
         if recreate_swapchain {
             dimensions = {
-                // doing this causes it to flip out and get stuck with
+                // using this causes it to flip out and get stuck with
                 // SwapchainCreationError::UnsupportedDimensions errors
                 // seems like high dpi issues ???
                 let window_inner = window.window().get_inner_size().unwrap();
