@@ -13,16 +13,16 @@ use vulkano::device::Device;
 use vulkano::framebuffer::Framebuffer;
 use vulkano::framebuffer::Subpass;
 use vulkano::instance::Instance;
-use vulkano::pipeline::GraphicsPipeline;
 use vulkano::pipeline::viewport::Viewport;
+use vulkano::pipeline::GraphicsPipeline;
 use vulkano::swapchain;
 use vulkano::swapchain::AcquireError;
 use vulkano::swapchain::PresentMode;
 use vulkano::swapchain::SurfaceTransform;
 use vulkano::swapchain::Swapchain;
 use vulkano::swapchain::SwapchainCreationError;
-use vulkano::sync::GpuFuture;
 use vulkano::sync::now;
+use vulkano::sync::GpuFuture;
 use vulkano_win::VkSurfaceBuild;
 
 use std::mem;
@@ -83,6 +83,11 @@ fn main() {
         let caps = window
             .capabilities(physical)
             .expect("failed to get surface capabilities");
+
+        println!(
+            "caps image extent min: {:?} max: {:?}, current_extent: {:?}",
+            caps.min_image_extent, caps.max_image_extent, caps.current_extent
+        );
 
         let alpha = caps.supported_composite_alpha.iter().next().unwrap();
         dimensions = caps.current_extent.unwrap_or(dimensions);
@@ -200,17 +205,29 @@ void main() {
 
         if recreate_swapchain {
             dimensions = {
-                let (new_width, new_height) = window.window().get_inner_size().unwrap();
-                [new_width, new_height]
+                // doing this causes it to flip out and get stuck with
+                // SwapchainCreationError::UnsupportedDimensions errors
+                // seems like high dpi issues ???
+                let window_inner = window.window().get_inner_size().unwrap();
+                // [new_width, new_height]
+                let current_extent = window
+                    .capabilities(physical)
+                    .unwrap()
+                    .current_extent
+                    .unwrap();
+
+                println!(
+                    "in recreate swapchain, window_inner: {:?}, current_extent: {:?}",
+                    window_inner, current_extent
+                );
+                current_extent
             };
 
-            println!("Dimensions: {}, {}", dimensions[0], dimensions[1]);
+            println!("Recreate Dimensions: {}, {}", dimensions[0], dimensions[1]);
 
             let (new_swapchain, new_images) = match swapchain.recreate_with_dimension(dimensions) {
                 Ok(r) => r,
                 Err(SwapchainCreationError::UnsupportedDimensions) => {
-                    //  { max_supported }
-                    // println!("continue... {:?}", max_supported);
                     continue;
                 }
                 Err(err) => panic!("{:?}", err),
@@ -263,13 +280,11 @@ void main() {
                     pipeline.clone(),
                     DynamicState {
                         line_width: None,
-                        viewports: Some(vec![
-                            Viewport {
-                                origin: [0.0, 0.0],
-                                dimensions: [dimensions[0] as f32, dimensions[1] as f32],
-                                depth_range: 0.0..1.0,
-                            },
-                        ]),
+                        viewports: Some(vec![Viewport {
+                            origin: [0.0, 0.0],
+                            dimensions: [dimensions[0] as f32, dimensions[1] as f32],
+                            depth_range: 0.0..1.0,
+                        }]),
                         scissors: None,
                     },
                     vertex_buffer.clone(),
@@ -301,7 +316,7 @@ void main() {
                 event: winit::WindowEvent::Resized(_, _),
                 ..
             } => recreate_swapchain = true,
-            _ => (),
+            x => println!("event: {:?}", x),
         });
         if done {
             return;
