@@ -15,6 +15,7 @@ use vulkano::framebuffer::Framebuffer;
 use vulkano::framebuffer::Subpass;
 use vulkano::instance::Instance;
 use vulkano::pipeline::vertex::SingleBufferDefinition;
+use vulkano::pipeline::vertex::TwoBuffersDefinition;
 use vulkano::pipeline::viewport::Viewport;
 use vulkano::pipeline::GraphicsPipeline;
 use vulkano::swapchain;
@@ -145,7 +146,7 @@ fn main() {
         cgmath::Rad(std::f32::consts::FRAC_PI_2),
         { dimensions[0] as f32 / dimensions[1] as f32 },
         0.01,
-        100.0,
+        1024.0,
     );
     let view = cgmath::Matrix4::look_at(
         cgmath::Point3::new(0.3, 0.3, 1.0),
@@ -187,11 +188,12 @@ fn main() {
 
     let pipeline = Arc::new(
         GraphicsPipeline::start()
-            .vertex_input_single_buffer()
+            .vertex_input(TwoBuffersDefinition::new())
             .vertex_shader(vs.main_entry_point(), ())
             .triangle_list()
             .viewports_dynamic_scissors_irrelevant(1)
             .fragment_shader(fs.main_entry_point(), ())
+            .depth_stencil_simple_depth()
             .render_pass(Subpass::from(render_pass.clone(), 0).unwrap())
             .build(device.clone())
             .unwrap(),
@@ -282,7 +284,8 @@ fn main() {
             let elapsed = rotation_start.elapsed();
             let rotation =
                 elapsed.as_secs() as f64 + elapsed.subsec_nanos() as f64 / 1_000_000_000.0;
-            let rotation = cgmath::Matrix3::from_angle_y(cgmath::Rad(rotation as f32));
+            let rotation = cgmath::Matrix3::from_angle_y(cgmath::Rad(rotation as f32))
+                * cgmath::Matrix3::from_angle_z(cgmath::Rad(rotation as f32));
 
             let uniform_data = vs::ty::Data {
                 world: cgmath::Matrix4::from(rotation).into(),
